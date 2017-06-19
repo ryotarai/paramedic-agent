@@ -81,7 +81,7 @@ func (c *CLI) startWithOptions(options *Options) error {
 	}
 
 	writer.StartUploading()
-	defer writer.Finalize()
+	defer writer.Close()
 
 	cmd := NewCommand(options.Args[0], options.Args[1:], writer)
 	return cmd.Run()

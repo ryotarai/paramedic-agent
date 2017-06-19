@@ -10,6 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/pkg/errors"
 )
 
 type Chunk struct {
@@ -32,6 +33,7 @@ type S3Writer struct {
 	Bucket       string
 	KeyPrefix    string
 
+	closed      bool
 	buffer      []*Chunk
 	s3          *s3.S3
 	finalizeCh  chan struct{}
@@ -61,7 +63,12 @@ func NewS3Writer(bucket string, key string, interval time.Duration, maxSize int)
 	}, nil
 }
 
-func (w *S3Writer) Finalize() {
+func (w *S3Writer) Close() {
+	w.closed = true
+	for _, chunk := range w.buffer {
+		chunk.closed = true
+	}
+
 	w.finalizeCh <- struct{}{}
 	<-w.finalizedCh
 }
@@ -123,6 +130,10 @@ func (w *S3Writer) uploadBuffer() {
 }
 
 func (w *S3Writer) Write(p []byte) (int, error) {
+	if w.closed {
+		return 0, errors.New("already closed")
+	}
+
 	// TODO: performance
 	w.mutex.Lock()
 	chunk := w.buffer[len(w.buffer)-1]
