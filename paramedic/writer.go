@@ -151,7 +151,6 @@ func (w *CloudWatchLogsWriter) flushBufferOnce() int {
 
 func (w *CloudWatchLogsWriter) putEvents(entries []logEntry) error {
 	log.Printf("DEBUG: uploading %d log entries", len(entries))
-	// TODO: batch size
 
 	events := []*cloudwatchlogs.InputLogEvent{}
 	for _, e := range entries {
