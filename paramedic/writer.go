@@ -69,8 +69,6 @@ func (w *CloudWatchLogsWriter) Start() error {
 }
 
 func (w *CloudWatchLogsWriter) Write(p []byte) (int, error) {
-	log.Printf("%s", string(p))
-
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 
@@ -105,15 +103,40 @@ func (w *CloudWatchLogsWriter) createStream() error {
 
 func (w *CloudWatchLogsWriter) flushBuffer() {
 	log.Println("DEBUG: flushing log buffer")
+	for {
+		remaining := w.flushBufferOnce()
+		if remaining == 0 {
+			break
+		}
+	}
+}
 
+func (w *CloudWatchLogsWriter) flushBufferOnce() int {
 	w.mutex.Lock()
-	b := w.buffer
-	w.buffer = []logEntry{}
+	batch := []logEntry{}
+	batchSize := 0
+	for _, e := range w.buffer {
+		s := len(e.text) + 26      // 26 is size of header of log event
+		if batchSize+s > 1048576 { // 1048576 is max size of a single batch
+			break
+		}
+		if len(batch) >= 10000 { // 10000 is max count of records in a single batch
+			break
+		}
+		batch = append(batch, e)
+		batchSize += s
+	}
+	w.buffer = w.buffer[len(batch):]
+	remaining := len(w.buffer)
 	w.mutex.Unlock()
+
+	if len(batch) == 0 {
+		return 0
+	}
 
 	sleep := time.Second * 1
 	for {
-		err := w.putEvents(b)
+		err := w.putEvents(batch)
 		if err == nil {
 			break
 		}
@@ -122,6 +145,8 @@ func (w *CloudWatchLogsWriter) flushBuffer() {
 		time.Sleep(sleep)
 		sleep *= 2
 	}
+
+	return remaining
 }
 
 func (w *CloudWatchLogsWriter) putEvents(entries []logEntry) error {
