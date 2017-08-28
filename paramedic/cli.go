@@ -108,7 +108,7 @@ func (c *CLI) parseFlag(name string, args []string) (*Options, error) {
 }
 
 func (c *CLI) startWithOptions(options *Options) (error, int) {
-	log.Println("INFO: starting paramedic-agent")
+	log.Printf("INFO: starting paramedic-agent v%s", Version)
 
 	sess := session.Must(session.NewSession())
 	s3 := s3.New(sess)
