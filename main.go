@@ -8,5 +8,6 @@ import (
 
 func main() {
 	cli := paramedic.NewCLI()
-	os.Exit(cli.Start())
+	status := cli.Start()
+	os.Exit(status)
 }

@@ -32,9 +32,11 @@ func (w *SignalWatcher) Start() chan signal {
 		for {
 			time.Sleep(w.interval)
 
+			log.Printf("DEBUG: checking a signal object at s3://%s/%s", w.bucket, w.key)
 			output, err := w.s3.GetObject(input)
 			if err != nil {
 				if aerr, ok := err.(awserr.Error); ok && aerr.Code() == s3.ErrCodeNoSuchKey {
+					log.Println("DEBUG: a signal object is not found")
 					continue
 				}
 				log.Printf("ERROR: %v", err)
@@ -54,6 +56,7 @@ func (w *SignalWatcher) Start() chan signal {
 				continue
 			}
 
+			log.Printf("INFO: a signal object is found: %+v", s)
 			ch <- s
 		}
 	}()

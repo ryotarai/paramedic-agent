@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"os/exec"
 	"syscall"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
 	"github.com/aws/aws-sdk-go/service/s3"
 )
 
@@ -24,15 +24,14 @@ func NewCLI() *CLI {
 }
 
 type Options struct {
-	Args            []string
-	OutputLogGroup  string
-	OutputLogStream string
-	SignalS3Bucket  string
-	SignalS3Key     string
-	ScriptS3Bucket  string
-	ScriptS3Key     string
-	UploadInterval  time.Duration
-	SignalInterval  time.Duration
+	OutputLogGroup        string
+	OutputLogStreamPrefix string
+	SignalS3Bucket        string
+	SignalS3Key           string
+	ScriptS3Bucket        string
+	ScriptS3Key           string
+	UploadInterval        time.Duration
+	SignalInterval        time.Duration
 }
 
 func (c *CLI) Start() int {
@@ -44,19 +43,25 @@ func (c *CLI) Start() int {
 
 	err, code := c.startWithOptions(options)
 	if err != nil {
-		log.Println(err)
-		return code
+		log.Printf("ERROR: %s", err)
 	}
 
-	return 0
+	return code
 }
 
 func (c *CLI) parseFlag(name string, args []string) (*Options, error) {
 	options := &Options{}
 
+	options.ScriptS3Bucket = os.Getenv("PARAMEDIC_SCRIPT_S3_BUCKET")
+	options.ScriptS3Key = os.Getenv("PARAMEDIC_SCRIPT_S3_KEY")
+	options.OutputLogGroup = os.Getenv("PARAMEDIC_OUTPUT_LOG_GROUP")
+	options.OutputLogStreamPrefix = os.Getenv("PARAMEDIC_OUTPUT_LOG_STREAM_PREFIX")
+	options.SignalS3Bucket = os.Getenv("PARAMEDIC_SIGNAL_S3_BUCKET")
+	options.SignalS3Key = os.Getenv("PARAMEDIC_SIGNAL_S3_KEY")
+
 	fs := flag.NewFlagSet(name, flag.ContinueOnError)
 	fs.StringVar(&options.OutputLogGroup, "output-log-group", "", "Output log group")
-	fs.StringVar(&options.OutputLogStream, "output-log-stream", "", "Output log stream")
+	fs.StringVar(&options.OutputLogStreamPrefix, "output-log-stream-prefix", "", "Output log stream prefix")
 	fs.StringVar(&options.SignalS3Bucket, "signal-s3-bucket", "", "Signal S3 bucket")
 	fs.StringVar(&options.SignalS3Key, "signal-s3-key", "", "Signal S3 key")
 	fs.StringVar(&options.ScriptS3Bucket, "script-s3-bucket", "", "Script S3 bucket")
@@ -71,8 +76,8 @@ func (c *CLI) parseFlag(name string, args []string) (*Options, error) {
 	if options.OutputLogGroup == "" {
 		return nil, errors.New("-output-log-group is mandatory option")
 	}
-	if options.OutputLogStream == "" {
-		return nil, errors.New("-output-log-stream is mandatory option")
+	if options.OutputLogStreamPrefix == "" {
+		return nil, errors.New("-output-log-stream-prefix is mandatory option")
 	}
 	if options.SignalS3Bucket == "" {
 		return nil, errors.New("-signal-s3-bucket is mandatory option")
@@ -85,11 +90,6 @@ func (c *CLI) parseFlag(name string, args []string) (*Options, error) {
 	}
 	if options.ScriptS3Key == "" {
 		return nil, errors.New("-script-s3-key is mandatory option")
-	}
-
-	options.Args = fs.Args()
-	if len(options.Args) < 1 {
-		return nil, errors.New("command is not specified")
 	}
 
 	d, err := time.ParseDuration(*uploadIntervalStr)
@@ -108,11 +108,24 @@ func (c *CLI) parseFlag(name string, args []string) (*Options, error) {
 }
 
 func (c *CLI) startWithOptions(options *Options) (error, int) {
+	log.Println("INFO: starting paramedic-agent")
+
 	sess := session.Must(session.NewSession())
 	s3 := s3.New(sess)
-	// cwlogs := cloudwatchlogs.New(sess)
+	cwlogs := cloudwatchlogs.New(sess)
 
-	cmd := NewCommand(options.Args[0], options.Args[1:], os.Stdout)
+	instanceID, err := fetchInstanceID()
+	if err != nil {
+		return err, agentExitCode
+	}
+
+	logStream := fmt.Sprintf("%s%s", options.OutputLogStreamPrefix, instanceID)
+	writer := NewCloudWatchLogsWriter(cwlogs, options.OutputLogGroup, logStream, options.UploadInterval)
+	if err := writer.Start(); err != nil {
+		return err, agentExitCode
+	}
+
+	cmd := NewCommand(s3, options.ScriptS3Bucket, options.ScriptS3Key, writer)
 	cmdCh, err := cmd.Start()
 	if err != nil {
 		return err, agentExitCode
@@ -126,20 +139,17 @@ func (c *CLI) startWithOptions(options *Options) (error, int) {
 	}
 	signalCh := watcher.Start()
 
+	exitStatus := agentExitCode
+	var exitErr error
+
 L:
 	for {
 		select {
 		case err := <-cmdCh:
 			// command exited
-			if err != nil {
-				if eErr, ok := err.(*exec.ExitError); ok {
-					if s, ok := eErr.Sys().(syscall.WaitStatus); ok {
-						exitStatus := s.ExitStatus()
-						return fmt.Errorf("command exited with %d", exitStatus), exitStatus
-					}
-					return errors.New("error does not implement syscall.WaitStatus"), agentExitCode
-				}
-				return err, agentExitCode
+			exitStatus, exitErr = exitStatusFromError(err)
+			if exitErr == nil {
+				log.Printf("INFO: the command exited with status %d", exitStatus)
 			}
 			break L
 		case signal := <-signalCh:
@@ -148,5 +158,8 @@ L:
 		}
 	}
 
-	return nil, 0
+	writer.Write([]byte(fmt.Sprintf("(exit status: %d)\n", exitStatus)))
+	writer.Close()
+
+	return exitErr, exitStatus
 }
