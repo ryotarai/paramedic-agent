@@ -22,35 +22,13 @@ type signal struct {
 	Signal int `json:"signal"` // signal sent to the process
 }
 
-func (w *SignalWatcher) Start() chan signal {
-	ch := make(chan signal)
+func (w *SignalWatcher) Start() chan *signal {
+	ch := make(chan *signal)
 	go func() {
-		input := &s3.GetObjectInput{
-			Bucket: aws.String(w.bucket),
-			Key:    aws.String(w.key),
-		}
 		for {
 			time.Sleep(w.interval)
 
-			log.Printf("DEBUG: checking a signal object at s3://%s/%s", w.bucket, w.key)
-			output, err := w.s3.GetObject(input)
-			if err != nil {
-				if aerr, ok := err.(awserr.Error); ok && aerr.Code() == s3.ErrCodeNoSuchKey {
-					log.Println("DEBUG: a signal object is not found")
-					continue
-				}
-				log.Printf("ERROR: %v", err)
-				continue
-			}
-
-			data, err := ioutil.ReadAll(output.Body)
-			if err != nil {
-				log.Printf("ERROR: %v", err)
-				continue
-			}
-
-			s := signal{}
-			err = json.Unmarshal(data, &s)
+			s, err := w.Once()
 			if err != nil {
 				log.Printf("ERROR: %v", err)
 				continue
@@ -62,4 +40,34 @@ func (w *SignalWatcher) Start() chan signal {
 	}()
 
 	return ch
+}
+
+func (w *SignalWatcher) Once() (*signal, error) {
+	input := &s3.GetObjectInput{
+		Bucket: aws.String(w.bucket),
+		Key:    aws.String(w.key),
+	}
+
+	log.Printf("DEBUG: checking a signal object at s3://%s/%s", w.bucket, w.key)
+	output, err := w.s3.GetObject(input)
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok && aerr.Code() == s3.ErrCodeNoSuchKey {
+			log.Println("DEBUG: a signal object is not found")
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	data, err := ioutil.ReadAll(output.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	s := signal{}
+	err = json.Unmarshal(data, &s)
+	if err != nil {
+		return nil, err
+	}
+
+	return &s, nil
 }

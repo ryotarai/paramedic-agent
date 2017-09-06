@@ -107,6 +107,21 @@ func (c *CLI) startWithOptions(options *Options) (error, int) {
 	s3 := s3.New(sess)
 	cwlogs := cloudwatchlogs.New(sess)
 
+	watcher := SignalWatcher{
+		s3:       s3,
+		bucket:   options.SignalS3Bucket,
+		key:      options.SignalS3Key,
+		interval: options.SignalInterval,
+	}
+	sig, err := watcher.Once()
+	if err != nil {
+		return err, agentExitCode
+	}
+	if sig != nil {
+		log.Printf("INFO: exiting because signal object is found before starting a command")
+		return nil, 0
+	}
+
 	instanceID, err := fetchInstanceID()
 	if err != nil {
 		return err, agentExitCode
@@ -124,12 +139,6 @@ func (c *CLI) startWithOptions(options *Options) (error, int) {
 		return err, agentExitCode
 	}
 
-	watcher := SignalWatcher{
-		s3:       s3,
-		bucket:   options.SignalS3Bucket,
-		key:      options.SignalS3Key,
-		interval: options.SignalInterval,
-	}
 	signalCh := watcher.Start()
 
 	exitStatus := agentExitCode
