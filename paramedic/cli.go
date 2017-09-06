@@ -52,20 +52,13 @@ func (c *CLI) Start() int {
 func (c *CLI) parseFlag(name string, args []string) (*Options, error) {
 	options := &Options{}
 
-	options.ScriptS3Bucket = os.Getenv("PARAMEDIC_SCRIPT_S3_BUCKET")
-	options.ScriptS3Key = os.Getenv("PARAMEDIC_SCRIPT_S3_KEY")
-	options.OutputLogGroup = os.Getenv("PARAMEDIC_OUTPUT_LOG_GROUP")
-	options.OutputLogStreamPrefix = os.Getenv("PARAMEDIC_OUTPUT_LOG_STREAM_PREFIX")
-	options.SignalS3Bucket = os.Getenv("PARAMEDIC_SIGNAL_S3_BUCKET")
-	options.SignalS3Key = os.Getenv("PARAMEDIC_SIGNAL_S3_KEY")
-
 	fs := flag.NewFlagSet(name, flag.ContinueOnError)
-	fs.StringVar(&options.OutputLogGroup, "output-log-group", "", "Output log group")
-	fs.StringVar(&options.OutputLogStreamPrefix, "output-log-stream-prefix", "", "Output log stream prefix")
-	fs.StringVar(&options.SignalS3Bucket, "signal-s3-bucket", "", "Signal S3 bucket")
-	fs.StringVar(&options.SignalS3Key, "signal-s3-key", "", "Signal S3 key")
-	fs.StringVar(&options.ScriptS3Bucket, "script-s3-bucket", "", "Script S3 bucket")
-	fs.StringVar(&options.ScriptS3Key, "script-s3-key", "", "Script S3 key")
+	fs.StringVar(&options.OutputLogGroup, "output-log-group", os.Getenv("PARAMEDIC_OUTPUT_LOG_GROUP"), "Output log group")
+	fs.StringVar(&options.OutputLogStreamPrefix, "output-log-stream-prefix", os.Getenv("PARAMEDIC_OUTPUT_LOG_STREAM_PREFIX"), "Output log stream prefix")
+	fs.StringVar(&options.SignalS3Bucket, "signal-s3-bucket", os.Getenv("PARAMEDIC_SIGNAL_S3_BUCKET"), "Signal S3 bucket")
+	fs.StringVar(&options.SignalS3Key, "signal-s3-key", os.Getenv("PARAMEDIC_SIGNAL_S3_KEY"), "Signal S3 key")
+	fs.StringVar(&options.ScriptS3Bucket, "script-s3-bucket", os.Getenv("PARAMEDIC_SCRIPT_S3_BUCKET"), "Script S3 bucket")
+	fs.StringVar(&options.ScriptS3Key, "script-s3-key", os.Getenv("PARAMEDIC_SCRIPT_S3_KEY"), "Script S3 key")
 	uploadIntervalStr := fs.String("upload-interval", "10s", "Interval to upload output")
 	signalIntervalStr := fs.String("signal-interval", "10s", "Interval to check signal")
 	err := fs.Parse(args)
