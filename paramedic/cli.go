@@ -24,6 +24,7 @@ func NewCLI() *CLI {
 }
 
 type Options struct {
+	ShowVersion           bool
 	OutputLogGroup        string
 	OutputLogStreamPrefix string
 	SignalS3Bucket        string
@@ -41,6 +42,16 @@ func (c *CLI) Start() int {
 		return 1
 	}
 
+	if options.ShowVersion {
+		fmt.Printf("paramedic-agent v%s\n", Version)
+		return 0
+	}
+
+	if err := c.validateOptions(options); err != nil {
+		log.Println(err)
+		return 1
+	}
+
 	err, code := c.startWithOptions(options)
 	if err != nil {
 		log.Printf("ERROR: %s", err)
@@ -49,10 +60,33 @@ func (c *CLI) Start() int {
 	return code
 }
 
+func (c *CLI) validateOptions(options *Options) error {
+	if options.OutputLogGroup == "" {
+		return errors.New("-output-log-group is mandatory option")
+	}
+	if options.OutputLogStreamPrefix == "" {
+		return errors.New("-output-log-stream-prefix is mandatory option")
+	}
+	if options.SignalS3Bucket == "" {
+		return errors.New("-signal-s3-bucket is mandatory option")
+	}
+	if options.SignalS3Key == "" {
+		return errors.New("-signal-s3-key is mandatory option")
+	}
+	if options.ScriptS3Bucket == "" {
+		return errors.New("-script-s3-bucket is mandatory option")
+	}
+	if options.ScriptS3Key == "" {
+		return errors.New("-script-s3-key is mandatory option")
+	}
+	return nil
+}
+
 func (c *CLI) parseFlag(name string, args []string) (*Options, error) {
 	options := &Options{}
 
 	fs := flag.NewFlagSet(name, flag.ContinueOnError)
+	fs.BoolVar(&options.ShowVersion, "version", false, "Show version")
 	fs.StringVar(&options.OutputLogGroup, "output-log-group", os.Getenv("PARAMEDIC_OUTPUT_LOG_GROUP"), "Output log group")
 	fs.StringVar(&options.OutputLogStreamPrefix, "output-log-stream-prefix", os.Getenv("PARAMEDIC_OUTPUT_LOG_STREAM_PREFIX"), "Output log stream prefix")
 	fs.StringVar(&options.SignalS3Bucket, "signal-s3-bucket", os.Getenv("PARAMEDIC_SIGNAL_S3_BUCKET"), "Signal S3 bucket")
@@ -64,25 +98,6 @@ func (c *CLI) parseFlag(name string, args []string) (*Options, error) {
 	err := fs.Parse(args)
 	if err != nil {
 		return nil, err
-	}
-
-	if options.OutputLogGroup == "" {
-		return nil, errors.New("-output-log-group is mandatory option")
-	}
-	if options.OutputLogStreamPrefix == "" {
-		return nil, errors.New("-output-log-stream-prefix is mandatory option")
-	}
-	if options.SignalS3Bucket == "" {
-		return nil, errors.New("-signal-s3-bucket is mandatory option")
-	}
-	if options.SignalS3Key == "" {
-		return nil, errors.New("-signal-s3-key is mandatory option")
-	}
-	if options.ScriptS3Bucket == "" {
-		return nil, errors.New("-script-s3-bucket is mandatory option")
-	}
-	if options.ScriptS3Key == "" {
-		return nil, errors.New("-script-s3-key is mandatory option")
 	}
 
 	d, err := time.ParseDuration(*uploadIntervalStr)
