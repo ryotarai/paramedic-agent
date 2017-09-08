@@ -33,6 +33,9 @@ func (w *SignalWatcher) Start() chan *signal {
 				log.Printf("ERROR: %v", err)
 				continue
 			}
+			if s == nil {
+				continue
+			}
 
 			log.Printf("INFO: a signal object is found: %+v", s)
 			ch <- s
