@@ -30,3 +30,12 @@ Agent for [Paramedic](https://github.com/ryotarai/paramedic)
    ]
 }
 ```
+
+## Configuration
+
+Put a config file at `/etc/paramedic-agent/config.yaml` if you want
+
+```yaml
+# (Optional) Specify which credential provider aws-sdk uses
+AWSCredentialProvider: 'EC2Role'
+```
