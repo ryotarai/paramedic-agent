@@ -9,6 +9,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws/credentials/ec2rolecreds"
+
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
 	"github.com/aws/aws-sdk-go/service/s3"
@@ -31,6 +33,7 @@ type Options struct {
 	SignalS3Key           string
 	ScriptS3Bucket        string
 	ScriptS3Key           string
+	AWSCredentialProvider string
 	UploadInterval        time.Duration
 	SignalInterval        time.Duration
 }
@@ -47,6 +50,8 @@ func (c *CLI) Start() int {
 		return 0
 	}
 
+	loadConfigToOptions("/etc/paramedic-agent/config.yaml", options)
+
 	if err := c.validateOptions(options); err != nil {
 		log.Println(err)
 		return 1
@@ -58,6 +63,18 @@ func (c *CLI) Start() int {
 	}
 
 	return code
+}
+
+func loadConfigToOptions(path string, options *Options) {
+	cfg, err := LoadConfig(path)
+	if err != nil {
+		log.Printf("WARN: failed to load a config file: %s", err)
+		return
+	}
+
+	if options.AWSCredentialProvider == "" {
+		options.AWSCredentialProvider = cfg.AWSCredentialProvider
+	}
 }
 
 func (c *CLI) validateOptions(options *Options) error {
@@ -93,6 +110,7 @@ func (c *CLI) parseFlag(name string, args []string) (*Options, error) {
 	fs.StringVar(&options.SignalS3Key, "signal-s3-key", os.Getenv("PARAMEDIC_SIGNAL_S3_KEY"), "Signal S3 key")
 	fs.StringVar(&options.ScriptS3Bucket, "script-s3-bucket", os.Getenv("PARAMEDIC_SCRIPT_S3_BUCKET"), "Script S3 bucket")
 	fs.StringVar(&options.ScriptS3Key, "script-s3-key", os.Getenv("PARAMEDIC_SCRIPT_S3_KEY"), "Script S3 key")
+	fs.StringVar(&options.AWSCredentialProvider, "credential-provider", "", "Credential provider (one of 'EC2Role')")
 	uploadIntervalStr := fs.String("upload-interval", "10s", "Interval to upload output")
 	signalIntervalStr := fs.String("signal-interval", "10s", "Interval to check signal")
 	err := fs.Parse(args)
@@ -119,6 +137,11 @@ func (c *CLI) startWithOptions(options *Options) (error, int) {
 	log.Printf("INFO: starting paramedic-agent v%s", Version)
 
 	sess := session.Must(session.NewSession())
+	if options.AWSCredentialProvider == "EC2Role" {
+		creds := ec2rolecreds.NewCredentials(sess)
+		sess.Config.Credentials = creds
+	}
+
 	s3 := s3.New(sess)
 	cwlogs := cloudwatchlogs.New(sess)
 
