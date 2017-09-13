@@ -9,6 +9,7 @@ build:
 
 buildx:
 	gox -ldflags "-X main.GitCommit=$(COMMIT)" -output "_bin/v$(VERSION)/{{.Dir}}_{{.OS}}_{{.Arch}}_$(VERSION)" -arch "amd64" -os "linux darwin" .
+	gzip -k _bin/v$(VERSION)/*
 
 test:
 	go test -v $(shell go list ./... | grep -v /vendor/)
