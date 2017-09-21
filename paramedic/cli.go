@@ -16,7 +16,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 )
 
-const agentExitCode = 254
+const agentExitCode = 255
 
 type CLI struct {
 }
@@ -179,7 +179,7 @@ func (c *CLI) startWithOptions(options *Options) (error, int) {
 
 	signalCh := watcher.Start()
 
-	exitStatus := agentExitCode
+	var exitStatus int
 	var exitErr error
 
 L:

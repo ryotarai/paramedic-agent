@@ -6,6 +6,8 @@ import (
 	"syscall"
 )
 
+const errorExitStatus = 255
+
 func exitStatusFromError(err error) (int, error) {
 	if err == nil {
 		return 0, nil
@@ -15,7 +17,7 @@ func exitStatusFromError(err error) (int, error) {
 		if s, ok := eErr.Sys().(syscall.WaitStatus); ok {
 			return s.ExitStatus(), nil
 		}
-		return -1, errors.New("an error does not implement syscall.WaitStatus")
+		return errorExitStatus, errors.New("an error does not implement syscall.WaitStatus")
 	}
-	return -1, err
+	return errorExitStatus, err
 }
