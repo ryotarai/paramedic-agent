@@ -198,7 +198,7 @@ L:
 		}
 	}
 
-	writer.Write([]byte(fmt.Sprintf("(exit status: %d)\n", exitStatus)))
+	fmt.Fprintf(writer, "(exit status: %d)\n", exitStatus)
 	writer.Close()
 
 	return exitErr, exitStatus
