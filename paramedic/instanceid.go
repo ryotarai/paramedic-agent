@@ -9,7 +9,7 @@ import (
 const instanceIDURL = "http://169.254.169.254/2016-09-02/meta-data/instance-id"
 
 func fetchInstanceID() (string, error) {
-	if id := os.Getenv("PARAMEDIC_INSTANCE_ID"); id != "" {
+	if id := os.Getenv("AWS_SSM_INSTANCE_ID"); id != "" {
 		return id, nil
 	}
 
