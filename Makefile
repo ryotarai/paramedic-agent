@@ -1,6 +1,8 @@
 COMMIT = $(shell git describe --always)
 VERSION = $(shell grep Version paramedic/version.go | sed -E 's/.*"(.+)"$$/\1/')
 
+.PHONY: mock
+
 default: build
 
 # build generate binary on './_bin' directory.
@@ -25,3 +27,6 @@ release: buildx
 dep:
 	dep ensure
 	dep status
+
+mock:
+	mockgen -source=paramedic/aws.go -destination=mock/aws.go -package=mock
