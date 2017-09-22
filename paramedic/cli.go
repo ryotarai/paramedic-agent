@@ -198,7 +198,11 @@ L:
 		}
 	}
 
-	fmt.Fprintf(writer, "(exit status: %d)\n", exitStatus)
+	if exitErr == nil {
+		fmt.Fprintf(writer, "[exit status: %d]\n", exitStatus)
+	} else {
+		fmt.Fprintf(writer, "[%s]\n", exitErr)
+	}
 	writer.Close()
 
 	return exitErr, exitStatus
