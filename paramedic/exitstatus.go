@@ -15,7 +15,10 @@ func exitStatusFromError(err error) (int, error) {
 
 	if eErr, ok := err.(*exec.ExitError); ok {
 		if s, ok := eErr.Sys().(syscall.WaitStatus); ok {
-			return s.ExitStatus(), nil
+			if s.Exited() {
+				return s.ExitStatus(), nil
+			}
+			return errorExitStatus, errors.New("the process did not exit properly")
 		}
 		return errorExitStatus, errors.New("an error does not implement syscall.WaitStatus")
 	}
