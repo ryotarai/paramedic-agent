@@ -30,14 +30,14 @@ func (w *SignalWatcher) Start() chan *signal {
 
 			s, err := w.Once()
 			if err != nil {
-				log.Printf("ERROR: %v", err)
+				log.Printf("[ERROR] %v", err)
 				continue
 			}
 			if s == nil {
 				continue
 			}
 
-			log.Printf("INFO: a signal object is found: %+v", s)
+			log.Printf("[INFO] A signal object is found: %+v", s)
 			ch <- s
 		}
 	}()
@@ -51,11 +51,11 @@ func (w *SignalWatcher) Once() (*signal, error) {
 		Key:    aws.String(w.key),
 	}
 
-	log.Printf("DEBUG: checking a signal object at s3://%s/%s", w.bucket, w.key)
+	log.Printf("[DEBUG] Checking a signal object at s3://%s/%s", w.bucket, w.key)
 	output, err := w.s3.GetObject(input)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok && aerr.Code() == s3.ErrCodeNoSuchKey {
-			log.Println("DEBUG: a signal object is not found")
+			log.Println("[DEBUG] A signal object is not found")
 			return nil, nil
 		}
 		return nil, err

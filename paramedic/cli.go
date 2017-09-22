@@ -41,7 +41,7 @@ type Options struct {
 func (c *CLI) Start() int {
 	options, err := c.parseFlag(os.Args[0], os.Args[1:])
 	if err != nil {
-		log.Println(err)
+		log.Printf("[ERROR] %s", err)
 		return 1
 	}
 
@@ -53,13 +53,13 @@ func (c *CLI) Start() int {
 	loadConfigToOptions("/etc/paramedic-agent/config.yaml", options)
 
 	if err := c.validateOptions(options); err != nil {
-		log.Println(err)
+		log.Printf("[ERROR] %s", err)
 		return 1
 	}
 
 	err, code := c.startWithOptions(options)
 	if err != nil {
-		log.Printf("ERROR: %s", err)
+		log.Printf("[ERROR] %s", err)
 	}
 
 	return code
@@ -68,7 +68,7 @@ func (c *CLI) Start() int {
 func loadConfigToOptions(path string, options *Options) {
 	cfg, err := LoadConfig(path)
 	if err != nil {
-		log.Printf("WARN: failed to load a config file: %s", err)
+		log.Printf("[WARN] Failed to load a config file: %s", err)
 		return
 	}
 
@@ -134,7 +134,7 @@ func (c *CLI) parseFlag(name string, args []string) (*Options, error) {
 }
 
 func (c *CLI) startWithOptions(options *Options) (error, int) {
-	log.Printf("INFO: starting paramedic-agent v%s", Version)
+	log.Printf("[INFO] Starting paramedic-agent v%s", Version)
 
 	sess := session.Must(session.NewSession())
 	if options.AWSCredentialProvider == "EC2Role" {
@@ -156,7 +156,7 @@ func (c *CLI) startWithOptions(options *Options) (error, int) {
 		return err, agentExitCode
 	}
 	if sig != nil {
-		log.Printf("INFO: exiting because signal object is found before starting a command")
+		log.Printf("[INFO] Exiting because signal object is found before starting a command")
 		return nil, 0
 	}
 
@@ -189,7 +189,7 @@ L:
 			// command exited
 			exitStatus, exitErr = exitStatusFromError(err)
 			if exitErr == nil {
-				log.Printf("INFO: the command exited with status %d", exitStatus)
+				log.Printf("[INFO] The command exited with status %d", exitStatus)
 			}
 			break L
 		case signal := <-signalCh:

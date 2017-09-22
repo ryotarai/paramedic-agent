@@ -48,7 +48,7 @@ func (c *Command) Start() (chan error, error) {
 	c.cmd.Stdout = c.writer
 	c.cmd.Stderr = c.writer
 
-	log.Printf("INFO: starting %s", f.Name())
+	log.Printf("[INFO] Starting %s", f.Name())
 	if err := c.cmd.Start(); err != nil {
 		return nil, err
 	}
@@ -62,12 +62,12 @@ func (c *Command) Start() (chan error, error) {
 }
 
 func (c *Command) Signal(sig os.Signal) error {
-	log.Printf("INFO: signal %d is sent to pid %d", sig, c.cmd.Process.Pid)
+	log.Printf("[INFO] Signal %d is sent to pid %d", sig, c.cmd.Process.Pid)
 	return c.cmd.Process.Signal(sig)
 }
 
 func (c *Command) download(f *os.File) error {
-	log.Printf("INFO: downloading a script from s3://%s/%s to %s", c.bucket, c.key, f.Name())
+	log.Printf("[INFO] Downloading a script from s3://%s/%s to %s", c.bucket, c.key, f.Name())
 
 	input := &s3.GetObjectInput{
 		Bucket: aws.String(c.bucket),

@@ -82,7 +82,7 @@ func (w *CloudWatchLogsWriter) Write(p []byte) (int, error) {
 }
 
 func (w *CloudWatchLogsWriter) Close() error {
-	log.Println("DEBUG: closing CloudWatchLogsWriter")
+	log.Println("[DEBUG] Closing CloudWatchLogsWriter")
 	w.closeCh <- struct{}{}
 	<-w.doneCh
 	return nil
@@ -102,7 +102,7 @@ func (w *CloudWatchLogsWriter) createStream() error {
 }
 
 func (w *CloudWatchLogsWriter) flushBuffer() {
-	log.Println("DEBUG: flushing log buffer")
+	log.Println("[DEBUG] Flushing log buffer")
 	for {
 		remaining := w.flushBufferOnce()
 		if remaining == 0 {
@@ -141,7 +141,7 @@ func (w *CloudWatchLogsWriter) flushBufferOnce() int {
 			break
 		}
 
-		log.Printf("WARN: uploading logs failed. will retry after %s", sleep.String())
+		log.Printf("[WARN] Uploading logs failed. will retry after %s", sleep.String())
 		time.Sleep(sleep)
 		sleep *= 2
 	}
@@ -150,7 +150,7 @@ func (w *CloudWatchLogsWriter) flushBufferOnce() int {
 }
 
 func (w *CloudWatchLogsWriter) putEvents(entries []logEntry) error {
-	log.Printf("DEBUG: uploading %d log entries", len(entries))
+	log.Printf("[DEBUG] Uploading %d log entries", len(entries))
 
 	events := []*cloudwatchlogs.InputLogEvent{}
 	for _, e := range entries {
