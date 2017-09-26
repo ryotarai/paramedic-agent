@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials/ec2rolecreds"
 
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -140,6 +141,9 @@ func (c *CLI) startWithOptions(options *Options) (error, int) {
 	if options.AWSCredentialProvider == "EC2Role" {
 		creds := ec2rolecreds.NewCredentials(sess)
 		sess.Config.Credentials = creds
+	}
+	if region := os.Getenv("AWS_SSM_REGION_NAME"); region != "" {
+		sess.Config.Region = aws.String(region)
 	}
 
 	s3 := s3.New(sess)
