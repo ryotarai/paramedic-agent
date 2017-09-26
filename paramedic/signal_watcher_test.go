@@ -10,6 +10,14 @@ import (
 	"github.com/ryotarai/paramedic-agent/mock"
 )
 
+type stringReadCloser struct {
+	*strings.Reader
+}
+
+func (rc *stringReadCloser) Close() error {
+	return nil
+}
+
 func TestSignalWatcherOnce(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
