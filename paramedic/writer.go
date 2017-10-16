@@ -1,7 +1,7 @@
 package paramedic
 
 import (
-	"bufio"
+	"errors"
 	"log"
 	"strings"
 	"sync"
@@ -24,6 +24,8 @@ type CloudWatchLogsWriter struct {
 	buffer        []logEntry
 	mutex         sync.Mutex
 	sequenceToken string
+	partialStr    string
+	closed        bool
 
 	closeCh chan struct{}
 	doneCh  chan struct{}
@@ -37,6 +39,7 @@ func NewCloudWatchLogsWriter(client CloudWatchLogs, group string, stream string,
 		interval: interval,
 		buffer:   []logEntry{},
 		mutex:    sync.Mutex{},
+		closed:   false,
 
 		closeCh: make(chan struct{}),
 		doneCh:  make(chan struct{}),
@@ -50,8 +53,8 @@ func (w *CloudWatchLogsWriter) Start() error {
 	}
 
 	go func() {
+		closed := false
 		for {
-			closed := false
 			select {
 			case <-w.closeCh:
 				closed = true
@@ -72,17 +75,29 @@ func (w *CloudWatchLogsWriter) Write(p []byte) (int, error) {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 
-	e := logEntry{
-		text:      string(p),
-		timestamp: time.Now(),
+	if w.closed {
+		return 0, errors.New("already closed")
 	}
-	w.buffer = append(w.buffer, e)
+
+	text := w.partialStr + string(p)
+	lines := strings.Split(text, "\n")
+	w.partialStr = lines[len(lines)-1]
+	lines = lines[:len(lines)-1]
+	for _, l := range lines {
+		e := logEntry{
+			text:      l,
+			timestamp: time.Now(),
+		}
+		w.buffer = append(w.buffer, e)
+	}
 
 	return len(p), nil
 }
 
 func (w *CloudWatchLogsWriter) Close() error {
 	log.Println("[DEBUG] Closing CloudWatchLogsWriter")
+	w.closed = true
+	w.flushPartialStr()
 	w.closeCh <- struct{}{}
 	<-w.doneCh
 	return nil
@@ -99,6 +114,17 @@ func (w *CloudWatchLogsWriter) createStream() error {
 	}
 
 	return nil
+}
+
+func (w *CloudWatchLogsWriter) flushPartialStr() {
+	w.mutex.Lock()
+	defer w.mutex.Unlock()
+
+	e := logEntry{
+		text:      w.partialStr,
+		timestamp: time.Now(),
+	}
+	w.buffer = append(w.buffer, e)
 }
 
 func (w *CloudWatchLogsWriter) flushBuffer() {
@@ -154,15 +180,11 @@ func (w *CloudWatchLogsWriter) putEvents(entries []logEntry) error {
 
 	events := []*cloudwatchlogs.InputLogEvent{}
 	for _, e := range entries {
-		reader := strings.NewReader(e.text)
-		scanner := bufio.NewScanner(reader)
-		for scanner.Scan() {
-			event := &cloudwatchlogs.InputLogEvent{
-				Message:   aws.String(scanner.Text()),
-				Timestamp: aws.Int64(e.timestamp.UnixNano() / 1000 / 1000),
-			}
-			events = append(events, event)
+		event := &cloudwatchlogs.InputLogEvent{
+			Message:   aws.String(e.text),
+			Timestamp: aws.Int64(e.timestamp.UnixNano() / 1000 / 1000),
 		}
+		events = append(events, event)
 	}
 
 	input := &cloudwatchlogs.PutLogEventsInput{
