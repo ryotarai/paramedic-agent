@@ -9,6 +9,9 @@ default: build
 build: 
 	go build -ldflags "-X main.GitCommit=$(COMMIT)" -o _bin/paramedic-agent .
 
+buildx-debug:
+	gox -ldflags "-X main.GitCommit=$(COMMIT)" -output "_bin/v$(VERSION)_debug/{{.Dir}}_{{.OS}}_{{.Arch}}_$(VERSION)_debug" -arch "amd64" -os "linux darwin" -tags "pprof" .
+
 buildx:
 	gox -ldflags "-X main.GitCommit=$(COMMIT)" -output "_bin/v$(VERSION)/{{.Dir}}_{{.OS}}_{{.Arch}}_$(VERSION)" -arch "amd64" -os "linux darwin" .
 	gzip -k _bin/v$(VERSION)/*
