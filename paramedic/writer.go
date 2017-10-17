@@ -120,6 +120,10 @@ func (w *CloudWatchLogsWriter) flushPartialStr() {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 
+	if len(w.partialStr) == 0 {
+		return
+	}
+
 	e := logEntry{
 		text:      w.partialStr,
 		timestamp: time.Now(),
@@ -167,7 +171,8 @@ func (w *CloudWatchLogsWriter) flushBufferOnce() int {
 			break
 		}
 
-		log.Printf("[WARN] Uploading logs failed. will retry after %s", sleep.String())
+		log.Printf("[WARN] Uploading logs failed: %s", err)
+		log.Printf("[WARN] will retry after %s", sleep.String())
 		time.Sleep(sleep)
 		sleep *= 2
 	}
